@@ -1,0 +1,14 @@
+*~
+.*.swp
+.*.swo
+*.pyc
+build/
+dist/
+doc/api/
+igraph/*.so
+*.egg-info/
+.python-version
+.tox
+docker/wheelhouse
+Pipfile
+
