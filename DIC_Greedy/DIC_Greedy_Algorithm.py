@@ -65,6 +65,67 @@ def DIC(G, S, new_s, ap, pp, mc):
     return average_spread
 
 
+def adaptive_DIC(G, activated_n, new_s, ap, pp, mc):
+    """
+    :param G: Graph
+    :param S: Seed-set
+    :param new_s: new potential seed node
+    :param pp: Propagation Probability
+    :param mc: Number of Monte-Carlo simulations
+    :return: Expected nodes influenced by seed-set
+    """
+    average_spread = 0
+    for _ in range(mc):
+        A = activated_n[:]  # activated nodes
+        new_a = [] # new activated nodes
+        if random.uniform(0, 1) < ap:  # if new seed node is activated
+            A.extend(new_s)
+            new_a.extend(new_s)
+
+        while new_a:
+            newly_influenced_nodes = []
+            for node in new_a:
+                # inactive_neighbors = list(set(G.neighbors(node)) - set(A))
+                neighbors = list(G.neighbors(node))
+                # if not inactive_neighbors:
+                #     break
+
+                # prob_list = np.random.uniform(0, 1, len(inactive_neighbors))
+                prob_list = np.random.uniform(0, 1, len(neighbors))
+                influenced_neighbors = prob_list < pp
+                # newly_influenced_nodes.extend(np.extract(influenced_neighbors, inactive_neighbors).tolist())
+                newly_influenced_nodes.extend(np.extract(influenced_neighbors, neighbors).tolist())
+
+                # A.extend(newly_influenced_nodes)
+
+            # new_a = list(set(newly_influenced_nodes))
+            new_a = list(set(newly_influenced_nodes) - set(A))
+            # A = list(set(A))
+            A.extend(new_a)
+
+        average_spread += len(A)
+        # print(average_spread)
+
+    return average_spread / 1.0 * mc
+
+
+def activate_nodes(G, activated_n, new_s, pp):
+    A = activated_n[:]
+    new_a = new_s[:]
+    while new_a:
+        newly_influenced_nodes = []
+        for node in new_a:
+            neighbors = list(G.neighbors(node))
+            prob_list = np.random.uniform(0, 1, len(neighbors))
+            influenced_neighbors = prob_list < pp
+            newly_influenced_nodes.extend(np.extract(influenced_neighbors, neighbors).tolist())
+
+        new_a = list(set(newly_influenced_nodes) - set(A))
+        A.extend(new_a)
+
+    return A
+
+
 def greedy(G, B, ap, pp, mc):
     """
     :param G: Graph
@@ -143,6 +204,7 @@ def lazy_greedy(G, B, ap, pp, mc):
 
     return S, spread
 
+
 def lazy_greedy_2(G, B, ap, pp, mc):
     """
     :param G: Graph
@@ -158,7 +220,10 @@ def lazy_greedy_2(G, B, ap, pp, mc):
 
     spread_list = []
 
+    counter_1 = 0
     for s in list(set(all_nodes) - set(S)):
+        counter_1 += 1
+        # print("counter: {}".format(counter_1))
         # print('new s is: {} and S is {}'.format(s, S))
         expected_spread = DIC(G, S, [s], ap, pp, mc)
         heapq.heappush(spread_list, (-expected_spread, s))
@@ -192,9 +257,84 @@ def lazy_greedy_2(G, B, ap, pp, mc):
     return S, spread
 
 
+def a_greedy(G, B, ap, pp, mc):
+    """
+    :param G: Graph
+    :param B: Budget
+    :param ap: Activation Probability for seed node
+    :param pp: Propagation Probability
+    :param mc: Number of Monte-Carlo simulations
+    :return: max spread
+    """
+
+    S = [] # initial seed-set
+    all_nodes = list(G.nodes)
+
+    spread_list = []
+
+    print("before DIC")
+    start_time = time.time()
+    counter_1 = 0
+    for s in list(set(all_nodes) - set(S)):
+        counter_1+=1
+        # print("counter: {}".format(counter_1))
+        # print('new s is: {} and S is {}'.format(s, S))
+        expected_spread = DIC(G, S, [s], ap, pp, mc)
+        heapq.heappush(spread_list, (-expected_spread, s))
+
+    _, seed = heapq.heappop(spread_list)
+    # spread = -spread
+
+    print("after DIC")
+    print("took {} seconds to run first round".format(time.time() - start_time))
+
+    S.append(seed)
+    spread_list.pop(0)
+
+    activated_nodes = []
+    activated_nodes = activate_nodes(G, activated_nodes, S, pp)
+
+    # spread_list_copy = spread_list[:]
+    while B-len(S):
+        # current_best_node = []
+        found_best_seed = False
+        node_lookup = 0
+        spread = len(activated_nodes)
+        while not found_best_seed:
+            _, potential_seed = heapq.heappop(spread_list)
+            if potential_seed in activated_nodes:
+                continue
+            node_lookup += 1
+            expected_spread = adaptive_DIC(G, activated_nodes, [potential_seed], ap, pp, mc)
+            marginal_gain = expected_spread - spread
+            heapq.heappush(spread_list, (-marginal_gain, potential_seed))
+
+            if spread_list[0][1] == potential_seed:
+                found_best_seed = True
+
+        _, new_seed = heapq.heappop(spread_list)
+        S.append(new_seed)
+        activated_nodes = activate_nodes(G, activated_nodes, new_seed, pp)
+
+        print(node_lookup)
+
+    return S, len(activated_nodes)
+
+
 G = read_xml_file('N_2500_beta_1.2_01.xml')
 print(nx.info(G))
+# start_time = time.time()
+# print(lazy_greedy_2(G, 5, 1.0, 0.01, 10000))
+# print("took {} seconds to run".format(time.time()-start_time))
+
 start_time = time.time()
-print(lazy_greedy_2(G, 5, 1.0, 0.01, 1500))
+S, spread = a_greedy(G, 30, 1.0, 0.01, 10000)
+print("spread from a_greedy: {}".format(spread))
+print("average spread: {}".format(DIC(G, S, [], 1.0, 0.01, 10000)))
 print("took {} seconds to run".format(time.time()-start_time))
-# print(greedy(G, 1, 1.0, 0.01, 10000))
+
+start_time = time.time()
+S, spread = lazy_greedy_2(G, 30, 1.0, 0.01, 10000)
+print("spread from lazy greedy: {}".format(spread))
+print("average spread: {}".format(DIC(G, S, [], 1.0, 0.01, 10000)))
+print("took {} seconds to run".format(time.time()-start_time))
