@@ -5,7 +5,7 @@ import copy
 import time
 from xml.dom import minidom
 import heapq
-
+import sys, os, inspect
 
 def read_xml_file(path):
     G = nx.DiGraph()
@@ -314,14 +314,15 @@ def a_greedy(G, B, ap, pp, mc):
 
         _, new_seed = heapq.heappop(spread_list)
         S.append(new_seed)
-        activated_nodes = activate_nodes(G, activated_nodes, new_seed, pp)
+        activated_nodes = activate_nodes(G, activated_nodes, [new_seed], pp)
 
         print(node_lookup)
 
     return S, len(activated_nodes)
 
 
-G = read_xml_file('N_2500_beta_1.2_01.xml')
+# G = read_xml_file('N_2500_beta_1.2_01.xml')
+G = nx.read_edgelist("C:/distributed-project/Online_Social_Network_Project/data/Wiki-Vote.txt", create_using = nx.DiGraph(), nodetype = int)
 print(nx.info(G))
 # start_time = time.time()
 # print(lazy_greedy_2(G, 5, 1.0, 0.01, 10000))
