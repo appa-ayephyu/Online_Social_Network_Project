@@ -85,8 +85,10 @@ def adaptive_DIC(G, activated_n, new_s, ap, F, mc):
             new_a = list(set(newly_influenced_nodes) - set(A))
             A.extend(new_a)
 
-        average_spread += len(A)
+        if len(list(set(A))) != len(A):
+            print("gg wrong! @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
+        average_spread += len(A)
         # print(average_spread)
     return average_spread * 1.0 / mc
 
@@ -96,6 +98,7 @@ def activate_nodes(G, activated_n, new_s, F):
     new_a = new_s[:]
     while new_a:
         newly_influenced_nodes = []
+        A.extend(new_a)
         for node in new_a:
             neighbors = list(G.neighbors(node))
             prob_list = np.random.uniform(0, 1, len(neighbors))
@@ -105,7 +108,6 @@ def activate_nodes(G, activated_n, new_s, F):
             newly_influenced_nodes.extend(np.extract(influenced_neighbors, neighbors).tolist())
 
         new_a = list(set(newly_influenced_nodes) - set(A))
-        A.extend(new_a)
 
     return A
 
@@ -242,7 +244,8 @@ def a_greedy(G, B, ap, F, mc):
     counter_1 = 0
     for s in list(set(all_nodes) - set(S)):
         counter_1+=1
-        print("counter: {}".format(counter_1))
+        if (counter_1 - 1) % 100 == 0:
+            print("counter: {}".format(counter_1))
         # print('new s is: {} and S is {}'.format(s, S))
         expected_spread = adaptive_DIC(G, S, [s], ap, F, mc)
         heapq.heappush(spread_list, (-expected_spread, s))
@@ -271,6 +274,9 @@ def a_greedy(G, B, ap, F, mc):
             node_lookup += 1
             expected_spread = adaptive_DIC(G, activated_nodes, [potential_seed], ap, F, mc)
             marginal_gain = expected_spread - spread
+            if marginal_gain < 0:
+                print("gg something is wrong!")
+
             heapq.heappush(spread_list, (-marginal_gain, potential_seed))
 
             if spread_list[0][1] == potential_seed:
@@ -290,10 +296,10 @@ G = read_xml_file('N_2500_beta_1.2_01.xml')
 print(nx.info(G))
 # print(list(G.nodes)[:10])
 
-for num_seed in range(1, 30):
+for num_seed in [2, 5, 10, 15, 20, 25, 30]:
     start_time = time.time()
-    _, delta_spread = a_greedy(G, num_seed, 1.0, 'F_3', 10000)
-    print("================ Number of seeds: {} ====================".format(num_seed))
+    _, delta_spread = a_greedy(G, num_seed, 1.0, 'F_3', 1000)
+    print("\n================ Number of seeds: {} ====================".format(num_seed))
     print("delta_spread from a_greedy: {}".format(delta_spread))
     print("took {} seconds to run".format(time.time()-start_time))
 
